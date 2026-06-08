@@ -41,8 +41,22 @@ _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio, time
     os.makedirs("data", exist_ok=True)
-    models.Base.metadata.create_all(bind=engine)
+
+    # Retry DB table creation — handles slow DB startup on first deploy
+    for attempt in range(1, 11):
+        try:
+            models.Base.metadata.create_all(bind=engine)
+            logger.info("✅ Database tables ready")
+            break
+        except Exception as exc:
+            if attempt == 10:
+                logger.error("❌ DB unavailable after 10 attempts — starting anyway")
+            else:
+                logger.warning(f"⏳ DB not ready (attempt {attempt}/10): {exc} — retrying in 3s")
+                await asyncio.sleep(3)
+
     logger.info("✅ Glowup Coach backend started")
     yield
 
