@@ -1,0 +1,26 @@
+# Render Blueprint — deploys the FastAPI backend automatically
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: glowup-coach-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true        # Render auto-generates a secure random value
+      - key: DATABASE_URL
+        fromDatabase:
+          name: glowup-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://glowup-coach.vercel.app  # change to your Vercel URL
+
+databases:
+  - name: glowup-db
+    plan: free
+    databaseName: glowup
+    user: glowup_admin

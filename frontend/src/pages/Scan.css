@@ -1,0 +1,450 @@
+/* ═══════════════════════════════════════════════════════
+   Scanner Page Styles
+   Full-viewport face scanner with three-panel layout
+═══════════════════════════════════════════════════════ */
+
+/* ─── Page shell ──────────────────────────────────────── */
+.scan-page-wrap {
+  position: fixed;
+  inset: 0;
+  top: 58px;          /* nav height */
+  background: #070a12;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* ─── Loading / Error overlay ─────────────────────────── */
+.scan-state-overlay {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scan-loading-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 40px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-xl);
+  min-width: 320px;
+  max-width: 420px;
+  animation: fade-up 0.4s ease;
+}
+
+.scanner-logo-ring {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scan-state-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.scan-state-desc {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.scan-progress-bar {
+  width: 220px;
+  height: 3px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.scan-progress-fill {
+  height: 100%;
+  width: 40%;
+  border-radius: 2px;
+  animation: scan-progress 1.8s ease-in-out infinite;
+}
+
+@keyframes scan-progress {
+  0%   { width: 0%; margin-left: 0%; }
+  50%  { width: 60%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+.scan-hint {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* ─── Hidden video ────────────────────────────────────── */
+.scan-hidden-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ─── Main 3-panel layout ─────────────────────────────── */
+.scanner-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px 1fr 200px;
+  gap: 0;
+  min-height: 0;
+}
+
+/* ─── Side panels ─────────────────────────────────────── */
+.scanner-panel {
+  background: rgba(15, 19, 32, 0.95);
+  border-color: var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 14px;
+  overflow-y: auto;
+}
+
+.scanner-panel-left  { border-right: 1px solid var(--border); }
+.scanner-panel-right { border-left: 1px solid var(--border); }
+
+.scanner-panel-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+
+/* ─── Feature bars ────────────────────────────────────── */
+.scanner-features {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+
+.scanner-feat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.scanner-feat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.scanner-feat-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scanner-feat-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.scanner-feat-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.scanner-feat-val {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: right;
+  font-family: 'DM Serif Display', serif;
+}
+
+/* ─── Total score card ────────────────────────────────── */
+.scanner-total-card {
+  padding: 12px;
+  background: var(--bg-3);
+  border: 1px solid;
+  border-radius: var(--r-md);
+  text-align: center;
+}
+
+.scanner-total-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 4px;
+}
+
+.scanner-total-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  line-height: 1.1;
+  transition: color 0.4s;
+}
+
+.scanner-total-verdict {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.scanner-frames {
+  font-size: 11px;
+  text-align: center;
+}
+
+/* ─── Camera canvas ───────────────────────────────────── */
+.scanner-camera-wrap {
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanner-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Mirror the canvas so user sees themselves correctly */
+  transform: scaleX(-1);
+}
+
+/* ─── No face pill ────────────────────────────────────── */
+.scanner-no-face-pill {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  background: rgba(248,113,113,0.15);
+  border: 1px solid rgba(248,113,113,0.4);
+  border-radius: 20px;
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+  animation: fade-up 0.3s ease;
+}
+
+/* ─── Ready overlay ───────────────────────────────────── */
+.scanner-ready-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 10, 18, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.scanner-ready-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.scanner-oval-hint {
+  padding: 5px 16px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  font-family: 'Inter', sans-serif;
+}
+
+.scanner-start-btn {
+  font-size: 16px;
+  padding: 14px 36px;
+  border-radius: 40px;
+  box-shadow: 0 4px 24px rgba(108,99,255,0.4);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 4px 24px rgba(108,99,255,0.4); }
+  50%       { box-shadow: 0 4px 40px rgba(108,99,255,0.7); }
+}
+
+.scanner-cam-hint {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  font-family: 'Inter', sans-serif;
+}
+
+/* ─── Done overlay ────────────────────────────────────── */
+.scanner-done-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 10, 18, 0.85);
+}
+
+.scanner-done-box {
+  text-align: center;
+  animation: count-up 0.5s ease;
+}
+
+.scanner-done-score {
+  font-family: 'DM Serif Display', serif;
+  font-size: 88px;
+  line-height: 1;
+}
+
+.scanner-done-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-top: 8px;
+}
+
+.scanner-done-rank {
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.scanner-done-sub {
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+/* PDF download status pill */
+.scanner-pdf-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-2);
+}
+
+.scanner-pdf-status.done {
+  background: rgba(52,211,153,0.12);
+  border-color: rgba(52,211,153,0.4);
+  color: #34d399;
+}
+
+.scanner-pdf-status.error {
+  background: rgba(248,113,113,0.1);
+  border-color: rgba(248,113,113,0.3);
+}
+
+.scanner-pdf-check {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+/* ─── Right panel ─────────────────────────────────────── */
+.scanner-countdown-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.countdown-svg { filter: drop-shadow(0 0 6px rgba(52,211,153,0.3)); }
+
+.scanner-countdown-label {
+  font-size: 11px;
+  text-align: center;
+}
+
+.scanner-done-icon {
+  font-size: 40px;
+  text-align: center;
+  color: #34d399;
+}
+
+.scanner-idle-icon {
+  font-size: 32px;
+  text-align: center;
+  color: var(--text-3);
+}
+
+.scanner-right-section { flex: 1; }
+
+.scanner-tips {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.scanner-tip-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.scanner-gender-badge {
+  padding: 6px 10px;
+  border: 1px solid;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  text-transform: capitalize;
+  font-family: 'Inter', sans-serif;
+}
+
+.scanner-disclaimer {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ─── Responsive ──────────────────────────────────────── */
+@media (max-width: 900px) {
+  .scanner-layout {
+    grid-template-columns: 190px 1fr 160px;
+  }
+}
+
+@media (max-width: 680px) {
+  .scanner-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto auto;
+  }
+  .scanner-panel-left  { order: 2; border-right: none; border-top: 1px solid var(--border); }
+  .scanner-panel-right { display: none; } /* hide tips on mobile */
+  .scanner-camera-wrap { order: 1; min-height: 55vw; }
+}
