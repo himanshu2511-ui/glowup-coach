@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from fastapi import (
     FastAPI, Depends, HTTPException, UploadFile, File,
-    WebSocket, WebSocketDisconnect, status, Query
+    WebSocket, WebSocketDisconnect, status, Query,
 )
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +30,13 @@ from database import engine, get_db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# ─── CORS origins (resolved before app creation) ──────────────────────────────
+
+_raw_origins     = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+
 # ─── Startup ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -39,16 +46,13 @@ async def lifespan(app: FastAPI):
     logger.info("✅ Glowup Coach backend started")
     yield
 
+
 app = FastAPI(
     title="Glowup Coach API",
     description="AI-powered facial aesthetics coaching platform",
     version="1.0.0",
     lifespan=lifespan,
 )
-
-
-_raw_origins    = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
-_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,13 +63,12 @@ app.add_middleware(
 )
 
 
-
 # ─── WebSocket Manager ────────────────────────────────────────────────────────
 
 class ScanNotificationManager:
     def __init__(self):
-        self.connections: dict[str, WebSocket] = {}       # user_id → WS
-        self.lb_connections: list[WebSocket]   = []       # leaderboard subscribers
+        self.connections: dict[str, WebSocket] = {}      # user_id → WS
+        self.lb_connections: list[WebSocket]   = []      # leaderboard subscribers
 
     async def connect(self, user_id: str, ws: WebSocket):
         await ws.accept()
@@ -181,7 +184,7 @@ def delete_account(
     db.commit()
 
 
-# ─── Analysis Endpoint ────────────────────────────────────────────────────────
+# ─── Analysis Endpoints ───────────────────────────────────────────────────────
 
 @app.post("/analyze", response_model=schemas.AnalysisResult)
 async def analyze_frame_endpoint(
@@ -192,18 +195,21 @@ async def analyze_frame_endpoint(
 ):
     """
     Accepts a single JPEG frame, runs MediaPipe analysis, returns per-feature scores.
-    Call this endpoint once every 3 seconds during the 30s scan session.
+    Call this endpoint once every ~3 seconds during the 30 s scan session.
     The frontend averages results across calls to produce the final score.
     """
     image_bytes = await frame.read()
     if len(image_bytes) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Frame too large (max 5MB)")
+        raise HTTPException(status_code=413, detail="Frame too large (max 5 MB)")
 
     metrics = analyzer.analyze_frame(image_bytes)
     if not metrics:
-        raise HTTPException(status_code=422, detail="No face detected in frame. Ensure good lighting and face is centered.")
+        raise HTTPException(
+            status_code=422,
+            detail="No face detected. Ensure good lighting and face is centred.",
+        )
 
-    effective_gender = gender_override or current_user.gender
+    effective_gender = gender_override or current_user.gender or "prefer_not_to_say"
     score_result = scorer_module.compute_score(metrics, effective_gender)
     tips = guidance_module.generate_tips(score_result["feature_scores"], effective_gender)
 
@@ -218,46 +224,45 @@ async def analyze_frame_endpoint(
 
 @app.post("/analyze/finalize", response_model=schemas.AnalysisResult)
 async def finalize_scan(
-    payload: dict,
+    payload: schemas.FinalizePayload,        # ← typed Pydantic model (was raw dict)
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth_module.get_current_user),
 ):
     """
-    Called at end of 30s scan with aggregated metrics from all frames.
+    Called at end of 30 s scan with aggregated metrics from all frames.
     Saves score to DB and returns final result + rank.
     """
-    feature_scores = payload.get("feature_scores", {})
-    frames_analyzed = payload.get("frames_analyzed", 0)
-    effective_gender = payload.get("gender_applied", current_user.gender)
+    effective_gender = payload.gender_applied or current_user.gender or "prefer_not_to_say"
 
-    if not feature_scores:
-        raise HTTPException(status_code=422, detail="No feature scores provided")
+    score_result = scorer_module.compute_score(payload.feature_scores, effective_gender)
 
-    score_result = scorer_module.compute_score(feature_scores, effective_gender)
-    tips = await guidance_module.generate_tips_ollama(score_result["feature_scores"], effective_gender)
+    # Async tip generation — falls back to rule-based if Ollama is unavailable
+    tips = await guidance_module.generate_tips_ollama(
+        score_result["feature_scores"], effective_gender
+    )
 
-    # Save to DB
+    # Persist to DB
     db_score = models.Score(
         user_id=current_user.id,
         total_score=score_result["total_score"],
         details=json.dumps(score_result["feature_scores"]),
         gender_applied=effective_gender,
-        frames_analyzed=frames_analyzed,
+        frames_analyzed=payload.frames_analyzed,
     )
     db.add(db_score)
     db.commit()
+    db.refresh(db_score)
 
-    # Compute rank
     rank = _get_user_rank(db, current_user.id, score_result["total_score"])
 
-    # Notify the scanner user via personal WS
+    # Notify the scanning user via personal WebSocket
     await ws_manager.send(str(current_user.id), {
-        "type": "scan_complete",
+        "type":        "scan_complete",
         "total_score": score_result["total_score"],
-        "rank": rank,
+        "rank":        rank,
     })
 
-    # Broadcast leaderboard update to ALL connected leaderboard tabs
+    # Broadcast leaderboard update to all connected leaderboard tabs
     await ws_manager.broadcast_leaderboard({
         "type":        "leaderboard_update",
         "username":    current_user.username,
@@ -269,7 +274,7 @@ async def finalize_scan(
         total_score=score_result["total_score"],
         details=score_result["feature_scores"],
         gender_applied=effective_gender,
-        frames_analyzed=frames_analyzed,
+        frames_analyzed=payload.frames_analyzed,
         tips=tips,
         rank=rank,
     )
@@ -278,6 +283,7 @@ async def finalize_scan(
 # ─── Leaderboard ──────────────────────────────────────────────────────────────
 
 def _get_user_rank(db: Session, user_id: int, score: float) -> int:
+    """Return 1-based rank (number of users with a higher best score + 1)."""
     count = (
         db.query(func.count())
         .select_from(
@@ -330,25 +336,24 @@ def leaderboard(
             rank=i + 1,
             username=row.username,
             total_score=round(float(row.best_score), 1) if row.best_score is not None else 0.0,
-            gender=row.gender,
+            gender=row.gender or "prefer_not_to_say",
             achieved_at=row.achieved_at,
         )
         for i, row in enumerate(rows)
         if row.best_score is not None
     ]
 
-    # Your rank
     user_best = (
         db.query(func.max(models.Score.total_score))
         .filter(models.Score.user_id == current_user.id)
         .scalar()
     )
-    your_rank = _get_user_rank(db, current_user.id, user_best) if user_best else None
+    your_rank = _get_user_rank(db, current_user.id, user_best) if user_best is not None else None
 
     return schemas.LeaderboardResponse(
         entries=entries,
         total_users=len(rows),
-        your_rank=your_rank if user_best else None,
+        your_rank=your_rank,
         your_best_score=round(float(user_best), 1) if user_best is not None else None,
     )
 
@@ -370,76 +375,70 @@ def my_scores(
     return [schemas.ScoreResponse.model_validate(s) for s in scores]
 
 
-# ─── Latest score with roadmap tips ───────────────────────────────────────────
+# ─── Latest scan → Roadmap data ───────────────────────────────────────────────
 
 @app.get("/scores/me/latest")
 async def my_latest_score(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth_module.get_current_user),
 ):
-    """Return the user's best scan with generated 4-week tips for the Roadmap page."""
-    best = (
+    """
+    Return the user's MOST RECENT scan with generated 4-week tips for the Roadmap page.
+    Uses the latest scan (created_at DESC) so the roadmap always reflects the newest data.
+    """
+    latest = (
         db.query(models.Score)
         .filter(models.Score.user_id == current_user.id)
-        .order_by(models.Score.total_score.desc())
+        .order_by(models.Score.created_at.desc())   # most recent, not necessarily best
         .first()
     )
-    if not best:
+    if not latest:
         raise HTTPException(status_code=404, detail="No scans yet")
 
     gender    = current_user.gender or "prefer_not_to_say"
-    feat_dict = best.details_dict or {}
+    feat_dict = latest.details_dict or {}
 
-    # Re-compute rank
-    rank = _get_user_rank(db, current_user.id, best.total_score)
+    if not feat_dict:
+        raise HTTPException(status_code=422, detail="Scan data is corrupted or empty")
 
-    # Generate tips with 4-week plans
+    rank = _get_user_rank(db, current_user.id, latest.total_score)
+
+    # Generate 4-week tips — falls back to rule-based if Ollama is unavailable
     tips = await guidance_module.generate_tips_ollama(feat_dict, gender)
 
     return {
-        "total_score":    round(float(best.total_score), 1),
-        "feature_scores": {k: round(float(v), 1) for k, v in feat_dict.items()},
-        "gender_applied": gender,
-        "frames_analyzed": best.frames_analyzed or 0,
-        "rank":           rank,
-        "tips":           tips,
-        "created_at":     best.created_at.isoformat() if best.created_at else None,
+        "total_score":     round(float(latest.total_score), 1),
+        "feature_scores":  {k: round(float(v), 1) for k, v in feat_dict.items()},
+        "gender_applied":  gender,
+        "frames_analyzed": latest.frames_analyzed or 0,
+        "rank":            rank,
+        "tips":            tips,
+        "created_at":      latest.created_at.isoformat() if latest.created_at else None,
     }
 
 
-
-
-# ─── PDF Report Endpoint ──────────────────────────────────────────────────────
+# ─── PDF Report ───────────────────────────────────────────────────────────────
 
 @app.post("/analyze/report")
 async def download_report(
-    payload: dict,
+    payload: schemas.ReportPayload,          # ← typed Pydantic model (was raw dict)
     current_user: models.User = Depends(auth_module.get_current_user),
 ):
     """
-    Generate a PDF report for the completed scan and return it as a
-    downloadable file. Called immediately after /analyze/finalize.
+    Generate a PDF report for the completed scan and stream it back as a download.
+    Called immediately after /analyze/finalize on the frontend.
     """
-    feature_scores = payload.get("feature_scores", {})
-    total_score    = payload.get("total_score", 0.0)
-    gender         = payload.get("gender_applied", current_user.gender)
-    frames         = payload.get("frames_analyzed", 0)
-    rank           = payload.get("rank")
-    tips           = payload.get("tips", [])
+    gender = payload.gender_applied or current_user.gender or "prefer_not_to_say"
 
-    if not feature_scores:
-        raise HTTPException(status_code=422, detail="No feature scores provided")
-
-    # Generate PDF to a temp file then read bytes
     with tempfile.TemporaryDirectory() as tmpdir:
         path = generate_pdf(
             username=current_user.username,
             gender=gender,
-            total_score=float(total_score),
-            feature_scores={k: float(v) for k, v in feature_scores.items()},
-            tips=tips,
-            frames_analyzed=int(frames),
-            rank=rank,
+            total_score=float(payload.total_score),
+            feature_scores={k: float(v) for k, v in payload.feature_scores.items()},
+            tips=payload.tips,
+            frames_analyzed=int(payload.frames_analyzed),
+            rank=payload.rank,
             output_dir=tmpdir,
         )
         with open(path, "rb") as f:
@@ -469,7 +468,7 @@ async def ws_scan(websocket: WebSocket, user_id: str):
 
 @app.websocket("/ws/leaderboard")
 async def ws_leaderboard(websocket: WebSocket):
-    """Any browser tab on the Leaderboard page connects here to receive live updates."""
+    """Browser tabs on the Leaderboard page connect here for live updates."""
     await ws_manager.connect_lb(websocket)
     try:
         while True:
