@@ -21,7 +21,13 @@ export function useAuth() {
       setUser(data.user)
       navigate('/scan')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Signup failed')
+      // FastAPI returns { detail: "..." } for 4xx, or { detail: [{msg:...}] } for 422
+      const detail = err.response?.data?.detail
+      if (Array.isArray(detail)) {
+        setError(detail.map(d => d.msg).join(', '))
+      } else {
+        setError(detail || 'Signup failed — please try again')
+      }
     } finally {
       setLoading(false)
     }
@@ -37,7 +43,8 @@ export function useAuth() {
       setUser(data.user)
       navigate('/scan')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid credentials')
+      const detail = err.response?.data?.detail
+      setError(Array.isArray(detail) ? detail.map(d => d.msg).join(', ') : (detail || 'Invalid credentials'))
     } finally {
       setLoading(false)
     }

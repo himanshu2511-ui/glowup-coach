@@ -16,7 +16,8 @@ alembic==1.13.1             # DB migrations
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4      # bcrypt instead of argon2 (better cloud compatibility)
+passlib==1.7.4              # passlib 1.7.4 is the last release; compatible with bcrypt 4.0.1
+bcrypt==4.0.1               # bcrypt 4.1+ changed internal API, breaking passlib 1.7.4
 
 # ── Face analysis ──────────────────────────────────────────────────────────────
 mediapipe==0.10.21          # Latest available on PyPI (0.10.14 was removed)

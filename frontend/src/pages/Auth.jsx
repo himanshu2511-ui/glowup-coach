@@ -3,23 +3,52 @@ import { useAuth } from '../hooks/useAuth'
 import './Auth.css'
 
 const GENDERS = [
-  { value: 'male',             icon: '♂',  label: 'Male',    desc: 'Male scoring weights' },
-  { value: 'female',           icon: '♀',  label: 'Female',  desc: 'Female scoring weights' },
-  { value: 'prefer_not_to_say',icon: '⊘',  label: 'Other',   desc: 'Neutral weights' },
+  { value: 'male',              icon: '♂',  label: 'Male',   desc: 'Male scoring weights' },
+  { value: 'female',            icon: '♀',  label: 'Female', desc: 'Female scoring weights' },
+  { value: 'prefer_not_to_say', icon: '⊘',  label: 'Other',  desc: 'Neutral weights' },
 ]
 
 export default function Auth() {
   const [mode, setMode] = useState('login')
   const [form, setForm] = useState({ username: '', email: '', password: '', gender: 'prefer_not_to_say' })
+  const [clientError, setClientError] = useState(null)
   const { login, signup, loading, error } = useAuth()
 
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+  const set = (k) => (e) => {
+    setClientError(null)
+    setForm(f => ({ ...f, [k]: e.target.value }))
+  }
+
+  const switchMode = (next) => {
+    setMode(next)
+    setClientError(null)
+    setForm({ username: '', email: '', password: '', gender: 'prefer_not_to_say' })
+  }
+
+  // Client-side validation before hitting the API
+  const validate = () => {
+    if (!form.username.trim() || form.username.trim().length < 3)
+      return 'Username must be at least 3 characters'
+    if (form.username.trim().length > 30)
+      return 'Username must be 30 characters or less'
+    if (mode === 'signup') {
+      if (!form.email.includes('@'))
+        return 'Enter a valid email address'
+      if (form.password.length < 6)
+        return 'Password must be at least 6 characters'
+    }
+    return null
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    const err = validate()
+    if (err) { setClientError(err); return }
     if (mode === 'login') login(form.username, form.password)
     else signup(form.username, form.email, form.password, form.gender)
   }
+
+  const displayError = clientError || error
 
   return (
     <div className="auth-layout">
@@ -70,14 +99,14 @@ export default function Auth() {
             <button
               id="tab-login"
               className={`auth-tab-btn ${mode === 'login' ? 'active' : ''}`}
-              onClick={() => setMode('login')}
+              onClick={() => switchMode('login')}
             >
               Sign in
             </button>
             <button
               id="tab-signup"
               className={`auth-tab-btn ${mode === 'signup' ? 'active' : ''}`}
-              onClick={() => setMode('signup')}
+              onClick={() => switchMode('signup')}
             >
               Create account
             </button>
@@ -120,11 +149,11 @@ export default function Auth() {
                 id="input-password"
                 className="input"
                 type="password"
-                placeholder="8+ characters"
+                placeholder={mode === 'signup' ? '6+ characters' : 'Your password'}
                 value={form.password}
                 onChange={set('password')}
                 required
-                minLength={8}
+                minLength={6}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </div>
@@ -150,10 +179,10 @@ export default function Auth() {
               </div>
             )}
 
-            {error && (
+            {displayError && (
               <div className="alert alert-error" id="auth-error">
                 <span>⚠</span>
-                <span>{error}</span>
+                <span>{displayError}</span>
               </div>
             )}
 
@@ -174,7 +203,7 @@ export default function Auth() {
             {mode === 'login' ? "No account? " : "Have an account? "}
             <button
               className="auth-link-btn"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
             >
               {mode === 'login' ? 'Sign up free' : 'Sign in'}
             </button>

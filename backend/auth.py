@@ -17,8 +17,11 @@ SECRET_KEY = os.getenv("SECRET_KEY", "glowup-super-secret-key-change-in-producti
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
-# Use argon2 — avoids bcrypt segfaults on ARM/minimal environments
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# bcrypt==4.0.1 + passlib==1.7.4 — pinned compatible pair
+# Suppress passlib's "(trapped) error reading bcrypt version" warning
+import warnings
+warnings.filterwarnings("ignore", ".*error reading bcrypt version.*")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
 # In-memory token blacklist (cleared on restart; fine for MVP)
