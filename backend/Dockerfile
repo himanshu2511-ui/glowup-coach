@@ -24,12 +24,15 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Runtime system dependencies for MediaPipe + OpenCV headless
+# NOTE: python:3.11-slim is based on Debian Bookworm where:
+#   libgl1-mesa-glx was split → use libgl1
+#   libxrender-dev  is build-only → use libxrender1 (runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libglib2.0-0 \
-        libgl1-mesa-glx \
+        libgl1 \
         libsm6 \
         libxext6 \
-        libxrender-dev \
+        libxrender1 \
         libgomp1 \
         libpq5 \
         curl \
