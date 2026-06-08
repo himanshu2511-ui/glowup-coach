@@ -1,15 +1,19 @@
 {
-  "venvPath": ".",
+  "venvPath": "/Users/a1989/Documents/antimay/glowup-coach/backend",
   "venv": "venv",
+  "pythonPath": "/Users/a1989/Documents/antimay/glowup-coach/backend/venv/bin/python3",
   "pythonVersion": "3.11",
   "pythonPlatform": "Darwin",
   "typeCheckingMode": "basic",
   "include": ["."],
   "exclude": [
     "venv",
-    "migrations/__pycache__",
+    "migrations",
     "**/__pycache__",
     "**/*.pyc"
+  ],
+  "extraPaths": [
+    "/Users/a1989/Documents/antimay/glowup-coach/backend/venv/lib/python3.11/site-packages"
   ],
   "reportMissingImports": false,
   "reportMissingModuleSource": false

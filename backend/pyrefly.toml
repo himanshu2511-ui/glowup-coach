@@ -1,0 +1,13 @@
+# Pyrefly type checker configuration
+# Docs: https://pyrefly.dev/configuration
+
+[pyrefly]
+# Point to the virtualenv Python so Pyrefly finds all installed packages
+python_interpreter = "venv/bin/python3"
+
+# Extra search paths — includes the backend root itself so local modules
+# (database.py, models.py, auth.py etc.) resolve without errors
+search_path = ["."]
+
+# Ignore third-party stub issues (passlib, mediapipe have no stubs)
+ignore_missing_imports = true
