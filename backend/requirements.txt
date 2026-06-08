@@ -1,16 +1,34 @@
+# ─── Glowup Coach — Backend Dependencies ──────────────────────────────────────
+# Pinned for reproducible builds. Python 3.11 required.
+# mediapipe 0.10.21 is the latest version that works on Python 3.11 + Linux/ARM.
+# Use opencv-python-headless (no GUI deps) for server environments.
+
+# ── Web framework ──────────────────────────────────────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
-sqlalchemy==2.0.30
-python-jose[cryptography]==3.3.0
-passlib[argon2]==1.7.4
+gunicorn==22.0.0            # Production-grade process manager (wraps uvicorn workers)
 python-multipart==0.0.9
-mediapipe==0.10.14
-opencv-python==4.9.0.80
-numpy==1.26.4
+
+# ── Database ───────────────────────────────────────────────────────────────────
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9      # PostgreSQL driver (production)
+alembic==1.13.1             # DB migrations
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4      # bcrypt instead of argon2 (better cloud compatibility)
+
+# ── Face analysis ──────────────────────────────────────────────────────────────
+mediapipe==0.10.21          # Latest available on PyPI (0.10.14 was removed)
+opencv-python-headless==4.10.0.84  # Headless = no display server needed on Render
+numpy>=1.26.4,<2.0.0        # mediapipe requires numpy<2.0
+
+# ── PDF + validation ───────────────────────────────────────────────────────────
+fpdf2==2.7.9
+pydantic[email]==2.7.1
 Pillow==10.3.0
+
+# ── HTTP + async ───────────────────────────────────────────────────────────────
 httpx==0.27.0
 websockets==12.0
-pydantic[email]==2.7.1
-fpdf2==2.7.9
 requests==2.32.3
-psycopg2-binary==2.9.9
