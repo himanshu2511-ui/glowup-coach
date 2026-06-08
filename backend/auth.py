@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timedelta
+import warnings
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import JWTError, jwt
@@ -11,21 +12,23 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
+# Suppress passlib's "(trapped) error reading bcrypt version" noise
+# Cause: passlib 1.7.4 reads bcrypt.__about__.__version__ which moved in bcrypt 4.x
+warnings.filterwarnings("ignore", ".*error reading bcrypt version.*")
+
+
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-SECRET_KEY = os.getenv("SECRET_KEY", "glowup-super-secret-key-change-in-production-2024")
-ALGORITHM = "HS256"
+SECRET_KEY              = os.getenv("SECRET_KEY", "glowup-super-secret-key-change-in-production")
+ALGORITHM               = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
-# bcrypt==4.0.1 + passlib==1.7.4 — pinned compatible pair
-# Suppress passlib's "(trapped) error reading bcrypt version" warning
-import warnings
-warnings.filterwarnings("ignore", ".*error reading bcrypt version.*")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# passlib==1.7.4 + bcrypt==4.0.1 — pinned compatible pair
+pwd_context  = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
-# In-memory token blacklist (cleared on restart; fine for MVP)
-_blacklisted_tokens: set = set()
+# In-memory token blacklist (cleared on restart — fine for MVP/free tier)
+_blacklisted_tokens: set[str] = set()
 
 
 # ─── Password Hashing ────────────────────────────────────────────────────────
@@ -42,7 +45,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -59,7 +62,7 @@ def decode_token(token: str) -> dict:
         )
 
 
-def blacklist_token(token: str):
+def blacklist_token(token: str) -> None:
     _blacklisted_tokens.add(token)
 
 
@@ -75,15 +78,24 @@ def get_current_user(
 ) -> models.User:
     token = credentials.credentials
     if is_blacklisted(token):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+        )
 
     payload = decode_token(token)
-    user_id: int = payload.get("sub")
+    user_id = payload.get("sub")
     if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
 
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or account disabled",
+        )
 
     return user
